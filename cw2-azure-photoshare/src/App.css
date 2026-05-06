@@ -1,0 +1,322 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f6f8fc;
+  color: #172033;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.page {
+  min-height: 100vh;
+}
+
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px 7%;
+  background: #ffffff;
+  box-shadow: 0 4px 18px rgba(23, 32, 51, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.logo {
+  font-size: 22px;
+  font-weight: 800;
+  color: #2563eb;
+}
+
+.navLinks {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  font-weight: 600;
+  color: #46546c;
+}
+
+.loginButton,
+.primaryButton,
+.secondaryButton,
+.uploadForm button {
+  border-radius: 12px;
+  font-weight: 700;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.loginButton {
+  background: #2563eb;
+  color: white;
+  padding: 10px 18px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr;
+  align-items: center;
+  gap: 48px;
+  padding: 90px 7%;
+}
+
+.eyebrow {
+  color: #2563eb;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.hero h1 {
+  font-size: clamp(40px, 6vw, 68px);
+  line-height: 1.04;
+  margin-bottom: 22px;
+}
+
+.heroText > p:not(.eyebrow) {
+  max-width: 720px;
+  font-size: 20px;
+  line-height: 1.7;
+  color: #59677d;
+  margin-bottom: 32px;
+}
+
+.heroButtons {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.primaryButton,
+.secondaryButton {
+  display: inline-block;
+  padding: 15px 24px;
+}
+
+.primaryButton {
+  background: #2563eb;
+  color: white;
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.25);
+}
+
+.secondaryButton {
+  background: white;
+  color: #2563eb;
+  border: 2px solid #2563eb;
+}
+
+.architectureCard {
+  background: white;
+  border-radius: 26px;
+  padding: 32px;
+  box-shadow: 0 24px 60px rgba(23, 32, 51, 0.12);
+}
+
+.architectureCard h2 {
+  color: #2563eb;
+  margin-bottom: 20px;
+}
+
+.architectureCard ul {
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+
+.architectureCard li {
+  background: #eef4ff;
+  border-radius: 14px;
+  padding: 14px 16px;
+  color: #29436b;
+  font-weight: 700;
+}
+
+.section {
+  padding: 78px 7%;
+  text-align: center;
+}
+
+.section h2 {
+  font-size: clamp(30px, 4vw, 44px);
+  margin-bottom: 18px;
+}
+
+.section > p:not(.eyebrow),
+.creatorSection p:not(.eyebrow) {
+  max-width: 800px;
+  margin: 0 auto;
+  line-height: 1.7;
+  color: #59677d;
+}
+
+.featureGrid,
+.photoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 34px;
+}
+
+.featureCard,
+.photoCard,
+.uploadForm {
+  background: white;
+  border-radius: 22px;
+  box-shadow: 0 12px 28px rgba(23, 32, 51, 0.08);
+}
+
+.featureCard {
+  padding: 30px;
+  text-align: left;
+}
+
+.featureCard h3 {
+  color: #2563eb;
+  margin-bottom: 12px;
+}
+
+.featureCard p {
+  color: #59677d;
+  line-height: 1.6;
+}
+
+.lightSection {
+  background: white;
+}
+
+.photoCard {
+  overflow: hidden;
+  text-align: left;
+}
+
+.photoPlaceholder {
+  min-height: 190px;
+  display: grid;
+  place-items: center;
+  color: white;
+  font-size: 24px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #2563eb, #8b5cf6);
+}
+
+.photoInfo {
+  padding: 22px;
+}
+
+.photoInfo h3 {
+  margin-bottom: 10px;
+}
+
+.photoInfo p {
+  color: #59677d;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.photoInfo span {
+  display: inline-block;
+  background: #eef4ff;
+  color: #2563eb;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  margin-right: 10px;
+}
+
+.photoInfo strong {
+  color: #f59e0b;
+}
+
+.creatorSection {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 38px;
+  align-items: center;
+  text-align: left;
+}
+
+.creatorSection p:not(.eyebrow) {
+  margin-left: 0;
+}
+
+.uploadForm {
+  padding: 28px;
+  display: grid;
+  gap: 16px;
+}
+
+.uploadForm label {
+  display: grid;
+  gap: 8px;
+  color: #46546c;
+  font-weight: 700;
+}
+
+.uploadForm input,
+.uploadForm textarea {
+  width: 100%;
+  border: 1px solid #d7deeb;
+  border-radius: 12px;
+  padding: 13px 14px;
+  font: inherit;
+}
+
+.uploadForm textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.uploadForm button {
+  border: 0;
+  background: #2563eb;
+  color: white;
+  padding: 15px 18px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.primaryButton:hover,
+.secondaryButton:hover,
+.loginButton:hover,
+.uploadForm button:hover {
+  transform: translateY(-2px);
+}
+
+footer {
+  background: #172033;
+  color: white;
+  text-align: center;
+  padding: 26px;
+}
+
+@media (max-width: 900px) {
+  .navbar,
+  .navLinks {
+    flex-direction: column;
+  }
+
+  .hero,
+  .creatorSection {
+    grid-template-columns: 1fr;
+  }
+
+  .featureGrid,
+  .photoGrid {
+    grid-template-columns: 1fr;
+  }
+}
