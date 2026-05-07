@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
 const initialPosts = [
   {
-    id: "1",
+    id: "demo-1",
     creator: "belfast_creator",
     avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
     imageUrl: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=900&h=900&fit=crop",
@@ -15,10 +15,11 @@ const initialPosts = [
     likes: 128,
     liked: false,
     comments: ["Beautiful shot!", "Great colours."],
-    ratings: [5, 4, 5]
+    ratings: [5, 4, 5],
+    apiBacked: false
   },
   {
-    id: "2",
+    id: "demo-2",
     creator: "nature_gallery",
     avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
     imageUrl: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=900&h=900&fit=crop",
@@ -30,10 +31,11 @@ const initialPosts = [
     likes: 245,
     liked: false,
     comments: ["Looks amazing!", "I want to visit this place."],
-    ratings: [5, 5, 4]
+    ratings: [5, 5, 4],
+    apiBacked: false
   },
   {
-    id: "3",
+    id: "demo-3",
     creator: "travel_creator",
     avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
     imageUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&h=900&fit=crop",
@@ -45,28 +47,77 @@ const initialPosts = [
     likes: 312,
     liked: false,
     comments: ["Very clean image.", "Nice upload."],
-    ratings: [4, 5, 5]
+    ratings: [4, 5, 5],
+    apiBacked: false
   }
 ];
 
-function getAverageRating(ratings) {
+function getAverageRating(ratings = []) {
   if (!ratings.length) return "No ratings";
-  const average = ratings.reduce((total, value) => total + value, 0) / ratings.length;
+  const average = ratings.reduce((total, value) => total + Number(value), 0) / ratings.length;
   return average.toFixed(1);
+}
+
+function normaliseApiPost(image) {
+  return {
+    id: image.id,
+    creator: image.creatorId || "creator_demo",
+    avatar: "https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop",
+    imageUrl: image.imageUrl,
+    title: image.title || "Untitled photo",
+    caption: image.caption || "",
+    location: image.location || "Unknown location",
+    peoplePresent: image.peoplePresent || [],
+    tags: image.tags || ["azure-storage"],
+    likes: image.likes || 0,
+    liked: false,
+    comments: image.comments || [],
+    ratings: image.ratings || [],
+    apiBacked: true
+  };
 }
 
 function App() {
   const [posts, setPosts] = useState(initialPosts);
   const [view, setView] = useState("feed");
   const [search, setSearch] = useState("");
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const [newPost, setNewPost] = useState({
     title: "",
     caption: "",
     location: "",
     peoplePresent: "",
-    imageUrl: ""
+    photo: null
   });
+
+  useEffect(() => {
+    async function loadAzurePosts() {
+      try {
+        setLoadingPosts(true);
+
+        const response = await fetch("/api/images");
+
+        if (!response.ok) {
+          throw new Error("Could not load Azure images");
+        }
+
+        const azureImages = await response.json();
+
+        if (Array.isArray(azureImages) && azureImages.length > 0) {
+          const apiPosts = azureImages.map(normaliseApiPost);
+          setPosts([...apiPosts, ...initialPosts]);
+        }
+      } catch (error) {
+        console.log("Using demo posts only:", error.message);
+      } finally {
+        setLoadingPosts(false);
+      }
+    }
+
+    loadAzurePosts();
+  }, []);
 
   const filteredPosts = useMemo(() => {
     const query = search.toLowerCase();
@@ -97,74 +148,150 @@ function App() {
     );
   }
 
-  function addComment(id) {
-    const comment = window.prompt("Enter your comment:");
+  async function addComment(id) {
+    const commentText = window.prompt("Enter your comment:");
 
-    if (!comment) return;
+    if (!commentText) return;
 
-    setPosts((currentPosts) =>
-      currentPosts.map((post) =>
-        post.id === id
-          ? {
-              ...post,
-              comments: [...post.comments, comment]
-            }
-          : post
-      )
-    );
-  }
+    const targetPost = posts.find((post) => post.id === id);
 
-  function ratePost(id, rating) {
-    setPosts((currentPosts) =>
-      currentPosts.map((post) =>
-        post.id === id
-          ? {
-              ...post,
-              ratings: [...post.ratings, rating]
-            }
-          : post
-      )
-    );
-  }
+    if (!targetPost) return;
 
-  function handleUpload(event) {
-    event.preventDefault();
-
-    if (!newPost.title || !newPost.caption || !newPost.location || !newPost.imageUrl) {
-      alert("Please complete title, caption, location, and image URL.");
+    if (!targetPost.apiBacked) {
+      setPosts((currentPosts) =>
+        currentPosts.map((post) =>
+          post.id === id
+            ? {
+                ...post,
+                comments: [...post.comments, commentText]
+              }
+            : post
+        )
+      );
       return;
     }
 
-    const uploadedPost = {
-      id: Date.now().toString(),
-      creator: "creator_demo",
-      avatar: "https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop",
-      imageUrl: newPost.imageUrl,
-      title: newPost.title,
-      caption: newPost.caption,
-      location: newPost.location,
-      peoplePresent: newPost.peoplePresent
-        .split(",")
-        .map((person) => person.trim())
-        .filter(Boolean),
-      tags: ["creator-upload", "cw2"],
-      likes: 0,
-      liked: false,
-      comments: [],
-      ratings: []
-    };
+    try {
+      const response = await fetch(`/api/images/${id}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          user: "consumer_user",
+          text: commentText
+        })
+      });
 
-    setPosts([uploadedPost, ...posts]);
+      if (!response.ok) {
+        throw new Error("Comment could not be saved");
+      }
 
-    setNewPost({
-      title: "",
-      caption: "",
-      location: "",
-      peoplePresent: "",
-      imageUrl: ""
-    });
+      const updatedImage = await response.json();
+      const updatedPost = normaliseApiPost(updatedImage);
 
-    setView("feed");
+      setPosts((currentPosts) =>
+        currentPosts.map((post) => (post.id === id ? updatedPost : post))
+      );
+    } catch (error) {
+      alert("Comment error: " + error.message);
+    }
+  }
+
+  async function ratePost(id, rating) {
+    const targetPost = posts.find((post) => post.id === id);
+
+    if (!targetPost) return;
+
+    if (!targetPost.apiBacked) {
+      setPosts((currentPosts) =>
+        currentPosts.map((post) =>
+          post.id === id
+            ? {
+                ...post,
+                ratings: [...post.ratings, rating]
+              }
+            : post
+        )
+      );
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/images/${id}/ratings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rating
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Rating could not be saved");
+      }
+
+      const updatedImage = await response.json();
+      const updatedPost = normaliseApiPost(updatedImage);
+
+      setPosts((currentPosts) =>
+        currentPosts.map((post) => (post.id === id ? updatedPost : post))
+      );
+    } catch (error) {
+      alert("Rating error: " + error.message);
+    }
+  }
+
+  async function handleUpload(event) {
+    event.preventDefault();
+
+    if (!newPost.title || !newPost.caption || !newPost.location || !newPost.photo) {
+      alert("Please complete title, caption, location, and choose a photo file.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("title", newPost.title);
+    formData.append("caption", newPost.caption);
+    formData.append("location", newPost.location);
+    formData.append("peoplePresent", newPost.peoplePresent);
+    formData.append("photo", newPost.photo);
+
+    try {
+      setUploading(true);
+
+      const response = await fetch("/api/images", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.error || "Upload failed");
+        return;
+      }
+
+      const savedImage = await response.json();
+      const uploadedPost = normaliseApiPost(savedImage);
+
+      setPosts((currentPosts) => [uploadedPost, ...currentPosts]);
+
+      setNewPost({
+        title: "",
+        caption: "",
+        location: "",
+        peoplePresent: "",
+        photo: null
+      });
+
+      alert("Photo uploaded to Azure Blob Storage and metadata saved to Cosmos DB.");
+      setView("feed");
+    } catch (error) {
+      alert("Upload error: " + error.message);
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -209,7 +336,7 @@ function App() {
             <button onClick={() => setView("feed")}>🏠 Feed</button>
             <button onClick={() => setView("consumer")}>🔎 Consumer View</button>
             <button onClick={() => setView("creator")}>⬆️ Creator Upload</button>
-            <button onClick={() => alert("Login and roles will be connected using Azure authentication later.")}>
+            <button onClick={() => alert("Login and roles can be added using Azure authentication.")}>
               🔐 Login / Roles
             </button>
           </div>
@@ -219,8 +346,8 @@ function App() {
             <p>React frontend</p>
             <p>Express REST API</p>
             <p>Azure App Service</p>
-            <p>Blob Storage planned</p>
-            <p>Cosmos DB planned</p>
+            <p>Blob Storage connected</p>
+            <p>Cosmos DB connected</p>
           </div>
         </aside>
 
@@ -234,14 +361,16 @@ function App() {
             ))}
           </div>
 
+          {loadingPosts && <p className="loading-text">Loading Azure posts...</p>}
+
           {view === "creator" && (
             <section className="creator-view">
               <div className="section-heading">
                 <p>Creator view</p>
                 <h2>Upload a photo with metadata</h2>
                 <span>
-                  Only creator users should upload content. This demo form represents the protected
-                  creator dashboard.
+                  Creator users upload photo files. The image is stored in Azure Blob
+                  Storage and the metadata is stored in Cosmos DB.
                 </span>
               </div>
 
@@ -294,18 +423,19 @@ function App() {
                 </label>
 
                 <label>
-                  Image URL
+                  Photo file
                   <input
-                    type="text"
-                    value={newPost.imageUrl}
+                    type="file"
+                    accept="image/*"
                     onChange={(event) =>
-                      setNewPost({ ...newPost, imageUrl: event.target.value })
+                      setNewPost({ ...newPost, photo: event.target.files[0] })
                     }
-                    placeholder="Paste an image URL for demo upload"
                   />
                 </label>
 
-                <button type="submit">Upload photo</button>
+                <button type="submit" disabled={uploading}>
+                  {uploading ? "Uploading to Azure..." : "Upload photo"}
+                </button>
               </form>
             </section>
           )}
@@ -316,7 +446,8 @@ function App() {
                 <p>Consumer view</p>
                 <h2>Search, view, comment, and rate photos</h2>
                 <span>
-                  Consumer users can interact with photo content but cannot upload images.
+                  Consumer users can search through photo content and interact with
+                  uploaded images.
                 </span>
               </div>
 
@@ -371,6 +502,9 @@ function App() {
                       <span>Location: {post.location}</span>
                       <span>People: {post.peoplePresent.join(", ") || "None"}</span>
                       <span>Rating: ⭐ {getAverageRating(post.ratings)}</span>
+                      <span>
+                        Storage: {post.apiBacked ? "Azure Blob + Cosmos DB" : "Demo post"}
+                      </span>
                     </div>
 
                     <div className="tags">
@@ -382,7 +516,8 @@ function App() {
                     <div className="comments">
                       {post.comments.map((comment, index) => (
                         <p key={index}>
-                          <b>consumer_user</b> {comment}
+                          <b>{typeof comment === "object" ? comment.user : "consumer_user"}</b>{" "}
+                          {typeof comment === "object" ? comment.text : comment}
                         </p>
                       ))}
                     </div>
@@ -403,11 +538,11 @@ function App() {
           </div>
 
           <div className="suggestion-card">
-            <h3>Advanced features to add next</h3>
+            <h3>Advanced features</h3>
             <p>Azure Blob Storage uploads</p>
             <p>Cosmos DB metadata</p>
-            <p>Authentication and roles</p>
-            <p>Azure AI Vision tags</p>
+            <p>Comments and ratings API</p>
+            <p>Creator and consumer views</p>
           </div>
         </aside>
       </main>
