@@ -1,33 +1,38 @@
-const express = require("express");
-const path = require("path");
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8080;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 app.use(express.json({ limit: "10mb" }));
 
 let images = [
   {
     id: "1",
-    title: "City Lights",
-    caption: "A creator photo shared on PhotoShare",
+    title: "Belfast City",
+    caption: "Creator uploaded photo for the CW2 PhotoShare app.",
     location: "Belfast",
     peoplePresent: ["Creator User"],
     imageUrl: "https://images.unsplash.com/photo-1493246507139-91e8fad9978e",
-    creatorId: "creator-1",
     comments: [
-      { user: "consumer1", text: "Great photo!" }
+      {
+        user: "consumer-demo",
+        text: "Great photo!"
+      }
     ],
     ratings: [5, 4]
   },
   {
     id: "2",
-    title: "Mountain View",
-    caption: "Cloud-native media sharing example",
+    title: "Nature View",
+    caption: "Sample photo for consumer users.",
     location: "Northern Ireland",
     peoplePresent: ["Alex", "Sam"],
     imageUrl: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee",
-    creatorId: "creator-1",
     comments: [],
     ratings: [5]
   }
@@ -35,8 +40,8 @@ let images = [
 
 app.get("/api/health", (req, res) => {
   res.json({
-    status: "API is running",
-    project: "CW2 Azure PhotoShare"
+    status: "running",
+    project: "CW2 PhotoShare Azure App"
   });
 });
 
@@ -80,7 +85,6 @@ app.post("/api/images", (req, res) => {
     location: req.body.location,
     peoplePresent: req.body.peoplePresent || [],
     imageUrl: req.body.imageUrl,
-    creatorId: "creator-demo",
     comments: [],
     ratings: []
   };
@@ -115,7 +119,9 @@ app.post("/api/images/:id/ratings", (req, res) => {
   const rating = Number(req.body.rating);
 
   if (rating < 1 || rating > 5) {
-    return res.status(400).json({ error: "Rating must be between 1 and 5" });
+    return res.status(400).json({
+      error: "Rating must be between 1 and 5"
+    });
   }
 
   image.ratings.push(rating);
