@@ -54,14 +54,19 @@ const initialPosts = [
 
 function getAverageRating(ratings = []) {
   if (!ratings.length) return "No ratings";
-  const average = ratings.reduce((total, value) => total + Number(value), 0) / ratings.length;
+
+  const values = ratings.map((rating) =>
+    typeof rating === "object" ? Number(rating.value) : Number(rating)
+  );
+
+  const average = values.reduce((total, value) => total + value, 0) / values.length;
   return average.toFixed(1);
 }
 
 function normaliseApiPost(image) {
   return {
     id: image.id,
-    creator: image.creatorId || "creator_demo",
+    creator: image.creatorName || image.creatorId || "creator_demo",
     avatar: "https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop",
     imageUrl: image.imageUrl,
     title: image.title || "Untitled photo",
@@ -80,9 +85,19 @@ function normaliseApiPost(image) {
 function App() {
   const [posts, setPosts] = useState(initialPosts);
   const [view, setView] = useState("feed");
+  const [authView, setAuthView] = useState(null);
   const [search, setSearch] = useState("");
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem("cw2-user");
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+
+  const [token, setToken] = useState(() => {
+    return localStorage.getItem("cw2-token") || "";
+  });
 
   const [newPost, setNewPost] = useState({
     title: "",
@@ -93,31 +108,29 @@ function App() {
   });
 
   useEffect(() => {
-    async function loadAzurePosts() {
-      try {
-        setLoadingPosts(true);
-
-        const response = await fetch("/api/images");
-
-        if (!response.ok) {
-          throw new Error("Could not load Azure images");
-        }
-
-        const azureImages = await response.json();
-
-        if (Array.isArray(azureImages) && azureImages.length > 0) {
-          const apiPosts = azureImages.map(normaliseApiPost);
-          setPosts([...apiPosts, ...initialPosts]);
-        }
-      } catch (error) {
-        console.log("Using demo posts only:", error.message);
-      } finally {
-        setLoadingPosts(false);
-      }
-    }
-
     loadAzurePosts();
   }, []);
+
+  async function loadAzurePosts() {
+    try {
+      setLoadingPosts(true);
+
+      const response = await fetch("/api/images");
+
+      if (!response.ok) {
+        throw new Error("Could not load Azure images");
+      }
+
+      const azureImages = await response.json();
+      const apiPosts = Array.isArray(azureImages) ? azureImages.map(normaliseApiPost) : [];
+
+      setPosts([...apiPosts, ...initialPosts]);
+    } catch (error) {
+      console.log("Using demo posts only:", error.message);
+    } finally {
+      setLoadingPosts(false);
+    }
+  }
 
   const filteredPosts = useMemo(() => {
     const query = search.toLowerCase();
@@ -134,6 +147,89 @@ function App() {
     });
   }, [posts, search]);
 
+  async function handleLogin(event) {
+    event.preventDefault();
+
+    const formData = new FormData(event.target);
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: formData.get("email"),
+          password: formData.get("password")
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || "Login failed");
+        return;
+      }
+
+      localStorage.setItem("cw2-token", data.token);
+      localStorage.setItem("cw2-user", JSON.stringify(data.user));
+
+      setToken(data.token);
+      setUser(data.user);
+      setAuthView(null);
+      setView("feed");
+    } catch (error) {
+      alert("Login error: " + error.message);
+    }
+  }
+
+  async function handleRegister(event) {
+    event.preventDefault();
+
+    const formData = new FormData(event.target);
+
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: formData.get("name"),
+          email: formData.get("email"),
+          password: formData.get("password")
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || "Registration failed");
+        return;
+      }
+
+      localStorage.setItem("cw2-token", data.token);
+      localStorage.setItem("cw2-user", JSON.stringify(data.user));
+
+      setToken(data.token);
+      setUser(data.user);
+      setAuthView(null);
+      setView("feed");
+    } catch (error) {
+      alert("Registration error: " + error.message);
+    }
+  }
+
+  function handleLogout() {
+    localStorage.removeItem("cw2-token");
+    localStorage.removeItem("cw2-user");
+
+    setToken("");
+    setUser(null);
+    setAuthView(null);
+    setView("feed");
+  }
+
   function likePost(id) {
     setPosts((currentPosts) =>
       currentPosts.map((post) =>
@@ -149,6 +245,12 @@ function App() {
   }
 
   async function addComment(id) {
+    if (!user || !token) {
+      alert("Please login or register before commenting.");
+      setAuthView("login");
+      return;
+    }
+
     const commentText = window.prompt("Enter your comment:");
 
     if (!commentText) return;
@@ -163,7 +265,13 @@ function App() {
           post.id === id
             ? {
                 ...post,
-                comments: [...post.comments, commentText]
+                comments: [
+                  ...post.comments,
+                  {
+                    user: user.name,
+                    text: commentText
+                  }
+                ]
               }
             : post
         )
@@ -175,20 +283,22 @@ function App() {
       const response = await fetch(`/api/images/${id}/comments`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          user: "consumer_user",
           text: commentText
         })
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error("Comment could not be saved");
+        alert(data.error || "Comment could not be saved");
+        return;
       }
 
-      const updatedImage = await response.json();
-      const updatedPost = normaliseApiPost(updatedImage);
+      const updatedPost = normaliseApiPost(data);
 
       setPosts((currentPosts) =>
         currentPosts.map((post) => (post.id === id ? updatedPost : post))
@@ -199,6 +309,12 @@ function App() {
   }
 
   async function ratePost(id, rating) {
+    if (!user || !token) {
+      alert("Please login or register before rating.");
+      setAuthView("login");
+      return;
+    }
+
     const targetPost = posts.find((post) => post.id === id);
 
     if (!targetPost) return;
@@ -209,7 +325,13 @@ function App() {
           post.id === id
             ? {
                 ...post,
-                ratings: [...post.ratings, rating]
+                ratings: [
+                  ...post.ratings,
+                  {
+                    user: user.email,
+                    value: rating
+                  }
+                ]
               }
             : post
         )
@@ -221,19 +343,22 @@ function App() {
       const response = await fetch(`/api/images/${id}/ratings`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           rating
         })
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error("Rating could not be saved");
+        alert(data.error || "Rating could not be saved");
+        return;
       }
 
-      const updatedImage = await response.json();
-      const updatedPost = normaliseApiPost(updatedImage);
+      const updatedPost = normaliseApiPost(data);
 
       setPosts((currentPosts) =>
         currentPosts.map((post) => (post.id === id ? updatedPost : post))
@@ -245,6 +370,12 @@ function App() {
 
   async function handleUpload(event) {
     event.preventDefault();
+
+    if (!user || user.role !== "creator") {
+      alert("Only creator users can upload photos.");
+      setAuthView("login");
+      return;
+    }
 
     if (!newPost.title || !newPost.caption || !newPost.location || !newPost.photo) {
       alert("Please complete title, caption, location, and choose a photo file.");
@@ -263,17 +394,20 @@ function App() {
 
       const response = await fetch("/api/images", {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
         body: formData
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const error = await response.json();
-        alert(error.error || "Upload failed");
+        alert(data.error || "Upload failed");
         return;
       }
 
-      const savedImage = await response.json();
-      const uploadedPost = normaliseApiPost(savedImage);
+      const uploadedPost = normaliseApiPost(data);
 
       setPosts((currentPosts) => [uploadedPost, ...currentPosts]);
 
@@ -294,10 +428,70 @@ function App() {
     }
   }
 
+  async function deletePost(id) {
+    const targetPost = posts.find((post) => post.id === id);
+
+    if (!targetPost) return;
+
+    if (!user || user.role !== "creator") {
+      alert("Only creator users can delete posts.");
+      return;
+    }
+
+    if (!window.confirm("Delete this post?")) return;
+
+    if (!targetPost.apiBacked) {
+      setPosts((currentPosts) => currentPosts.filter((post) => post.id !== id));
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/images/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || "Delete failed");
+        return;
+      }
+
+      setPosts((currentPosts) => currentPosts.filter((post) => post.id !== id));
+    } catch (error) {
+      alert("Delete error: " + error.message);
+    }
+  }
+
+  function showFeed() {
+    setAuthView(null);
+    setView("feed");
+  }
+
+  function showExplore() {
+    setAuthView(null);
+    setView("consumer");
+  }
+
+  function showCreator() {
+    setAuthView(null);
+
+    if (!user || user.role !== "creator") {
+      alert("Please login as creator to create posts.");
+      setAuthView("login");
+      return;
+    }
+
+    setView("creator");
+  }
+
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand" onClick={() => setView("feed")}>
+        <div className="brand" onClick={showFeed}>
           <div className="brand-icon">◎</div>
           <h1>PhotoGram CW2</h1>
         </div>
@@ -313,11 +507,25 @@ function App() {
         </div>
 
         <nav>
-          <button onClick={() => setView("feed")}>Home</button>
-          <button onClick={() => setView("consumer")}>Explore</button>
-          <button onClick={() => setView("creator")} className="primary-nav">
-            Creator
-          </button>
+          <button onClick={showFeed}>Home</button>
+          <button onClick={showExplore}>Explore</button>
+
+          {user?.role === "creator" && (
+            <button onClick={showCreator} className="primary-nav">
+              Create Post
+            </button>
+          )}
+
+          {!user && (
+            <>
+              <button onClick={() => setAuthView("login")}>Login</button>
+              <button onClick={() => setAuthView("register")} className="primary-nav">
+                Register
+              </button>
+            </>
+          )}
+
+          {user && <button onClick={handleLogout}>Logout ({user.role})</button>}
         </nav>
       </header>
 
@@ -326,19 +534,28 @@ function App() {
           <div className="profile-card">
             <img
               src="https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=120&h=120&fit=crop"
-              alt="creator profile"
+              alt="profile"
             />
-            <h2>creator_demo</h2>
-            <p>Creator account</p>
+            <h2>{user ? user.name : "guest_user"}</h2>
+            <p>{user ? `${user.role} account` : "Not logged in"}</p>
           </div>
 
           <div className="menu-card">
-            <button onClick={() => setView("feed")}>🏠 Feed</button>
-            <button onClick={() => setView("consumer")}>🔎 Consumer View</button>
-            <button onClick={() => setView("creator")}>⬆️ Creator Upload</button>
-            <button onClick={() => alert("Login and roles can be added using Azure authentication.")}>
-              🔐 Login / Roles
-            </button>
+            <button onClick={showFeed}>🏠 Feed</button>
+            <button onClick={showExplore}>🔎 Consumer View</button>
+
+            {user?.role === "creator" && (
+              <button onClick={showCreator}>➕ Create Post</button>
+            )}
+
+            {!user && (
+              <>
+                <button onClick={() => setAuthView("login")}>🔐 Login</button>
+                <button onClick={() => setAuthView("register")}>📝 Register</button>
+              </>
+            )}
+
+            {user && <button onClick={handleLogout}>🚪 Logout</button>}
           </div>
 
           <div className="cloud-card">
@@ -363,14 +580,74 @@ function App() {
 
           {loadingPosts && <p className="loading-text">Loading Azure posts...</p>}
 
-          {view === "creator" && (
+          {authView === "login" && (
+            <section className="creator-view">
+              <div className="section-heading">
+                <p>Login</p>
+                <h2>Login to PhotoGram</h2>
+                <span>
+                  Consumers can view the feed. Creator users can upload and manage posts.
+                </span>
+              </div>
+
+              <form className="upload-form" onSubmit={handleLogin}>
+                <label>
+                  Email
+                  <input name="email" type="email" placeholder="Email address" required />
+                </label>
+
+                <label>
+                  Password
+                  <input name="password" type="password" placeholder="Password" required />
+                </label>
+
+                <button type="submit">Login</button>
+              </form>
+
+              <p>
+                Creator demo login: <b>creator@photoshare.com</b> / <b>Creator123!</b>
+              </p>
+            </section>
+          )}
+
+          {authView === "register" && (
+            <section className="creator-view">
+              <div className="section-heading">
+                <p>Register</p>
+                <h2>Create consumer account</h2>
+                <span>
+                  Consumer users can view, search, comment and rate. They cannot upload photos.
+                </span>
+              </div>
+
+              <form className="upload-form" onSubmit={handleRegister}>
+                <label>
+                  Name
+                  <input name="name" type="text" placeholder="Your name" required />
+                </label>
+
+                <label>
+                  Email
+                  <input name="email" type="email" placeholder="Email address" required />
+                </label>
+
+                <label>
+                  Password
+                  <input name="password" type="password" placeholder="Password" required />
+                </label>
+
+                <button type="submit">Register</button>
+              </form>
+            </section>
+          )}
+
+          {!authView && view === "creator" && user?.role === "creator" && (
             <section className="creator-view">
               <div className="section-heading">
                 <p>Creator view</p>
-                <h2>Upload a photo with metadata</h2>
+                <h2>Create a post with photo metadata</h2>
                 <span>
-                  Creator users upload photo files. The image is stored in Azure Blob
-                  Storage and the metadata is stored in Cosmos DB.
+                  Creator uploads are stored in Azure Blob Storage. Metadata is stored in Cosmos DB.
                 </span>
               </div>
 
@@ -440,14 +717,13 @@ function App() {
             </section>
           )}
 
-          {view === "consumer" && (
+          {!authView && view === "consumer" && (
             <section className="consumer-view">
               <div className="section-heading">
                 <p>Consumer view</p>
                 <h2>Search, view, comment, and rate photos</h2>
                 <span>
-                  Consumer users can search through photo content and interact with
-                  uploaded images.
+                  Consumer users can view photo content but cannot upload images.
                 </span>
               </div>
 
@@ -466,7 +742,7 @@ function App() {
             </section>
           )}
 
-          {view === "feed" && (
+          {!authView && view === "feed" && (
             <section className="feed">
               {filteredPosts.map((post) => (
                 <article className="post" key={post.id}>
@@ -478,7 +754,12 @@ function App() {
                         <span>{post.location}</span>
                       </div>
                     </div>
-                    <button className="dots">•••</button>
+
+                    {user?.role === "creator" && (
+                      <button className="dots" onClick={() => deletePost(post.id)}>
+                        🗑️
+                      </button>
+                    )}
                   </div>
 
                   <img className="post-image" src={post.imageUrl} alt={post.title} />
@@ -541,8 +822,8 @@ function App() {
             <h3>Advanced features</h3>
             <p>Azure Blob Storage uploads</p>
             <p>Cosmos DB metadata</p>
-            <p>Comments and ratings API</p>
-            <p>Creator and consumer views</p>
+            <p>Login and registration</p>
+            <p>Creator and consumer roles</p>
           </div>
         </aside>
       </main>
