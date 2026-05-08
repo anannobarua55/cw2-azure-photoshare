@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
-const initialPosts = [
+const demoPosts = [
   {
     id: "demo-1",
     creator: "belfast_creator",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
-    imageUrl: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=900&h=900&fit=crop",
+    avatar:
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
+    imageUrl:
+      "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=900&h=900&fit=crop",
     title: "Belfast Night Lights",
-    caption: "A creator upload showing a city evening view.",
+    caption: "A city evening view shared by a creator.",
     location: "Belfast",
     peoplePresent: ["Alex", "Sam"],
     tags: ["city", "night", "lights"],
@@ -21,10 +23,12 @@ const initialPosts = [
   {
     id: "demo-2",
     creator: "nature_gallery",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
-    imageUrl: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=900&h=900&fit=crop",
+    avatar:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
+    imageUrl:
+      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=900&h=900&fit=crop",
     title: "Nature View",
-    caption: "A peaceful outdoor image for consumer users to view and rate.",
+    caption: "A peaceful outdoor image for consumers to view and rate.",
     location: "Northern Ireland",
     peoplePresent: ["Maya"],
     tags: ["nature", "green", "travel"],
@@ -32,22 +36,6 @@ const initialPosts = [
     liked: false,
     comments: ["Looks amazing!", "I want to visit this place."],
     ratings: [5, 5, 4],
-    apiBacked: false
-  },
-  {
-    id: "demo-3",
-    creator: "travel_creator",
-    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
-    imageUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&h=900&fit=crop",
-    title: "Ocean Mood",
-    caption: "Photo shared by a creator account with searchable metadata.",
-    location: "Portrush",
-    peoplePresent: ["Creator User"],
-    tags: ["sea", "beach", "travel"],
-    likes: 312,
-    liked: false,
-    comments: ["Very clean image.", "Nice upload."],
-    ratings: [4, 5, 5],
     apiBacked: false
   }
 ];
@@ -67,7 +55,8 @@ function normaliseApiPost(image) {
   return {
     id: image.id,
     creator: image.creatorName || image.creatorId || "creator_demo",
-    avatar: "https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop",
+    avatar:
+      "https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop",
     imageUrl: image.imageUrl,
     title: image.title || "Untitled photo",
     caption: image.caption || "",
@@ -83,9 +72,9 @@ function normaliseApiPost(image) {
 }
 
 function App() {
-  const [posts, setPosts] = useState(initialPosts);
+  const [posts, setPosts] = useState([]);
   const [view, setView] = useState("feed");
-  const [authView, setAuthView] = useState(null);
+  const [authMode, setAuthMode] = useState("login");
   const [search, setSearch] = useState("");
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -108,10 +97,14 @@ function App() {
   });
 
   useEffect(() => {
-    loadAzurePosts();
-  }, []);
+    if (user) {
+      loadPosts();
+    } else {
+      setPosts([]);
+    }
+  }, [user]);
 
-  async function loadAzurePosts() {
+  async function loadPosts() {
     try {
       setLoadingPosts(true);
 
@@ -122,11 +115,14 @@ function App() {
       }
 
       const azureImages = await response.json();
-      const apiPosts = Array.isArray(azureImages) ? azureImages.map(normaliseApiPost) : [];
+      const apiPosts = Array.isArray(azureImages)
+        ? azureImages.map(normaliseApiPost)
+        : [];
 
-      setPosts([...apiPosts, ...initialPosts]);
+      setPosts([...apiPosts, ...demoPosts]);
     } catch (error) {
       console.log("Using demo posts only:", error.message);
+      setPosts(demoPosts);
     } finally {
       setLoadingPosts(false);
     }
@@ -176,7 +172,6 @@ function App() {
 
       setToken(data.token);
       setUser(data.user);
-      setAuthView(null);
       setView("feed");
     } catch (error) {
       alert("Login error: " + error.message);
@@ -213,7 +208,6 @@ function App() {
 
       setToken(data.token);
       setUser(data.user);
-      setAuthView(null);
       setView("feed");
     } catch (error) {
       alert("Registration error: " + error.message);
@@ -226,8 +220,9 @@ function App() {
 
     setToken("");
     setUser(null);
-    setAuthView(null);
+    setPosts([]);
     setView("feed");
+    setAuthMode("login");
   }
 
   function likePost(id) {
@@ -246,8 +241,7 @@ function App() {
 
   async function addComment(id) {
     if (!user || !token) {
-      alert("Please login or register before commenting.");
-      setAuthView("login");
+      alert("Please login first.");
       return;
     }
 
@@ -310,8 +304,7 @@ function App() {
 
   async function ratePost(id, rating) {
     if (!user || !token) {
-      alert("Please login or register before rating.");
-      setAuthView("login");
+      alert("Please login first.");
       return;
     }
 
@@ -373,7 +366,6 @@ function App() {
 
     if (!user || user.role !== "creator") {
       alert("Only creator users can upload photos.");
-      setAuthView("login");
       return;
     }
 
@@ -419,7 +411,7 @@ function App() {
         photo: null
       });
 
-      alert("Photo uploaded to Azure Blob Storage and metadata saved to Cosmos DB.");
+      alert("Photo uploaded successfully.");
       setView("feed");
     } catch (error) {
       alert("Upload error: " + error.message);
@@ -429,14 +421,14 @@ function App() {
   }
 
   async function deletePost(id) {
-    const targetPost = posts.find((post) => post.id === id);
-
-    if (!targetPost) return;
-
     if (!user || user.role !== "creator") {
       alert("Only creator users can delete posts.");
       return;
     }
+
+    const targetPost = posts.find((post) => post.id === id);
+
+    if (!targetPost) return;
 
     if (!window.confirm("Delete this post?")) return;
 
@@ -466,32 +458,89 @@ function App() {
     }
   }
 
-  function showFeed() {
-    setAuthView(null);
-    setView("feed");
-  }
+  if (!user) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <div className="auth-brand">
+            <div className="brand-icon">◎</div>
+            <h1>PhotoGram CW2</h1>
+          </div>
 
-  function showExplore() {
-    setAuthView(null);
-    setView("consumer");
-  }
+          <p className="auth-subtitle">
+            Login or register before accessing the photo feed.
+          </p>
 
-  function showCreator() {
-    setAuthView(null);
+          <div className="auth-tabs">
+            <button
+              className={authMode === "login" ? "active" : ""}
+              onClick={() => setAuthMode("login")}
+            >
+              Login
+            </button>
+            <button
+              className={authMode === "register" ? "active" : ""}
+              onClick={() => setAuthMode("register")}
+            >
+              Register
+            </button>
+          </div>
 
-    if (!user || user.role !== "creator") {
-      alert("Please login as creator to create posts.");
-      setAuthView("login");
-      return;
-    }
+          {authMode === "login" && (
+            <form className="auth-form" onSubmit={handleLogin}>
+              <label>
+                Email
+                <input name="email" type="email" placeholder="Email address" required />
+              </label>
 
-    setView("creator");
+              <label>
+                Password
+                <input name="password" type="password" placeholder="Password" required />
+              </label>
+
+              <button type="submit">Login</button>
+
+              <div className="creator-login-note">
+                <strong>Creator demo login</strong>
+                <span>Email: creator@photoshare.com</span>
+                <span>Password: Creator123!</span>
+              </div>
+            </form>
+          )}
+
+          {authMode === "register" && (
+            <form className="auth-form" onSubmit={handleRegister}>
+              <label>
+                Name
+                <input name="name" type="text" placeholder="Your name" required />
+              </label>
+
+              <label>
+                Email
+                <input name="email" type="email" placeholder="Email address" required />
+              </label>
+
+              <label>
+                Password
+                <input name="password" type="password" placeholder="Password" required />
+              </label>
+
+              <button type="submit">Register as User</button>
+
+              <p className="auth-help">
+                Registered users can view, search, comment, and rate. They cannot upload.
+              </p>
+            </form>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand" onClick={showFeed}>
+        <div className="brand" onClick={() => setView("feed")}>
           <div className="brand-icon">◎</div>
           <h1>PhotoGram CW2</h1>
         </div>
@@ -507,147 +556,45 @@ function App() {
         </div>
 
         <nav>
-          <button onClick={showFeed}>Home</button>
-          <button onClick={showExplore}>Explore</button>
+          <button onClick={() => setView("feed")}>Feed</button>
+          <button onClick={() => setView("consumer")}>Explore</button>
 
-          {user?.role === "creator" && (
-            <button onClick={showCreator} className="primary-nav">
+          {user.role === "creator" && (
+            <button onClick={() => setView("creator")} className="primary-nav">
               Create Post
             </button>
           )}
 
-          {!user && (
-            <>
-              <button onClick={() => setAuthView("login")}>Login</button>
-              <button onClick={() => setAuthView("register")} className="primary-nav">
-                Register
-              </button>
-            </>
-          )}
-
-          {user && <button onClick={handleLogout}>Logout ({user.role})</button>}
+          <button onClick={handleLogout}>Logout</button>
         </nav>
       </header>
 
-      <main className="layout">
-        <aside className="left-panel">
-          <div className="profile-card">
-            <img
-              src="https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=120&h=120&fit=crop"
-              alt="profile"
-            />
-            <h2>{user ? user.name : "guest_user"}</h2>
-            <p>{user ? `${user.role} account` : "Not logged in"}</p>
-          </div>
+      <main className="main-layout">
+        <section className="feed-shell">
+          <div className="user-strip">
+            <div>
+              <strong>{user.name}</strong>
+              <span>{user.role} account</span>
+            </div>
 
-          <div className="menu-card">
-            <button onClick={showFeed}>🏠 Feed</button>
-            <button onClick={showExplore}>🔎 Consumer View</button>
-
-            {user?.role === "creator" && (
-              <button onClick={showCreator}>➕ Create Post</button>
+            {user.role === "consumer" && (
+              <p>You can view, search, comment, and rate photos.</p>
             )}
 
-            {!user && (
-              <>
-                <button onClick={() => setAuthView("login")}>🔐 Login</button>
-                <button onClick={() => setAuthView("register")}>📝 Register</button>
-              </>
+            {user.role === "creator" && (
+              <p>You can upload and manage photo posts.</p>
             )}
-
-            {user && <button onClick={handleLogout}>🚪 Logout</button>}
           </div>
 
-          <div className="cloud-card">
-            <h3>Azure Backend</h3>
-            <p>React frontend</p>
-            <p>Express REST API</p>
-            <p>Azure App Service</p>
-            <p>Blob Storage connected</p>
-            <p>Cosmos DB connected</p>
-          </div>
-        </aside>
+          {loadingPosts && <p className="loading-text">Loading posts...</p>}
 
-        <section className="main-panel">
-          <div className="stories">
-            {posts.map((post) => (
-              <div className="story" key={post.id}>
-                <img src={post.avatar} alt={post.creator} />
-                <span>{post.creator}</span>
-              </div>
-            ))}
-          </div>
-
-          {loadingPosts && <p className="loading-text">Loading Azure posts...</p>}
-
-          {authView === "login" && (
-            <section className="creator-view">
-              <div className="section-heading">
-                <p>Login</p>
-                <h2>Login to PhotoGram</h2>
-                <span>
-                  Consumers can view the feed. Creator users can upload and manage posts.
-                </span>
-              </div>
-
-              <form className="upload-form" onSubmit={handleLogin}>
-                <label>
-                  Email
-                  <input name="email" type="email" placeholder="Email address" required />
-                </label>
-
-                <label>
-                  Password
-                  <input name="password" type="password" placeholder="Password" required />
-                </label>
-
-                <button type="submit">Login</button>
-              </form>
-
-              <p>
-                Creator demo login: <b>creator@photoshare.com</b> / <b>Creator123!</b>
-              </p>
-            </section>
-          )}
-
-          {authView === "register" && (
-            <section className="creator-view">
-              <div className="section-heading">
-                <p>Register</p>
-                <h2>Create consumer account</h2>
-                <span>
-                  Consumer users can view, search, comment and rate. They cannot upload photos.
-                </span>
-              </div>
-
-              <form className="upload-form" onSubmit={handleRegister}>
-                <label>
-                  Name
-                  <input name="name" type="text" placeholder="Your name" required />
-                </label>
-
-                <label>
-                  Email
-                  <input name="email" type="email" placeholder="Email address" required />
-                </label>
-
-                <label>
-                  Password
-                  <input name="password" type="password" placeholder="Password" required />
-                </label>
-
-                <button type="submit">Register</button>
-              </form>
-            </section>
-          )}
-
-          {!authView && view === "creator" && user?.role === "creator" && (
+          {view === "creator" && user.role === "creator" && (
             <section className="creator-view">
               <div className="section-heading">
                 <p>Creator view</p>
-                <h2>Create a post with photo metadata</h2>
+                <h2>Create a new post</h2>
                 <span>
-                  Creator uploads are stored in Azure Blob Storage. Metadata is stored in Cosmos DB.
+                  Upload a photo with title, caption, location, and people present.
                 </span>
               </div>
 
@@ -711,20 +658,18 @@ function App() {
                 </label>
 
                 <button type="submit" disabled={uploading}>
-                  {uploading ? "Uploading to Azure..." : "Upload photo"}
+                  {uploading ? "Uploading..." : "Upload Photo"}
                 </button>
               </form>
             </section>
           )}
 
-          {!authView && view === "consumer" && (
+          {view === "consumer" && (
             <section className="consumer-view">
               <div className="section-heading">
-                <p>Consumer view</p>
-                <h2>Search, view, comment, and rate photos</h2>
-                <span>
-                  Consumer users can view photo content but cannot upload images.
-                </span>
+                <p>Explore</p>
+                <h2>Search and view photos</h2>
+                <span>Users can view posts but cannot upload content.</span>
               </div>
 
               <div className="explore-grid">
@@ -742,7 +687,7 @@ function App() {
             </section>
           )}
 
-          {!authView && view === "feed" && (
+          {view === "feed" && (
             <section className="feed">
               {filteredPosts.map((post) => (
                 <article className="post" key={post.id}>
@@ -755,9 +700,9 @@ function App() {
                       </div>
                     </div>
 
-                    {user?.role === "creator" && (
-                      <button className="dots" onClick={() => deletePost(post.id)}>
-                        🗑️
+                    {user.role === "creator" && (
+                      <button className="delete-btn" onClick={() => deletePost(post.id)}>
+                        Delete
                       </button>
                     )}
                   </div>
@@ -783,9 +728,6 @@ function App() {
                       <span>Location: {post.location}</span>
                       <span>People: {post.peoplePresent.join(", ") || "None"}</span>
                       <span>Rating: ⭐ {getAverageRating(post.ratings)}</span>
-                      <span>
-                        Storage: {post.apiBacked ? "Azure Blob + Cosmos DB" : "Demo post"}
-                      </span>
                     </div>
 
                     <div className="tags">
@@ -797,7 +739,11 @@ function App() {
                     <div className="comments">
                       {post.comments.map((comment, index) => (
                         <p key={index}>
-                          <b>{typeof comment === "object" ? comment.user : "consumer_user"}</b>{" "}
+                          <b>
+                            {typeof comment === "object"
+                              ? comment.user
+                              : "consumer_user"}
+                          </b>{" "}
                           {typeof comment === "object" ? comment.text : comment}
                         </p>
                       ))}
@@ -808,24 +754,6 @@ function App() {
             </section>
           )}
         </section>
-
-        <aside className="right-panel">
-          <div className="suggestion-card">
-            <h3>Project evidence</h3>
-            <p>Live Azure App Service deployment</p>
-            <p>REST endpoint: /api/health</p>
-            <p>REST endpoint: /api/images</p>
-            <p>GitHub Actions CI/CD</p>
-          </div>
-
-          <div className="suggestion-card">
-            <h3>Advanced features</h3>
-            <p>Azure Blob Storage uploads</p>
-            <p>Cosmos DB metadata</p>
-            <p>Login and registration</p>
-            <p>Creator and consumer roles</p>
-          </div>
-        </aside>
       </main>
     </div>
   );
